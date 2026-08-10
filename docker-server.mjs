@@ -84,8 +84,30 @@ const backendUrlVar =
   process.env.GITNEXUS_BACKEND_URL !== undefined ? 'GITNEXUS_BACKEND_URL' : 'RENDER_EXTERNAL_URL';
 const rawBackendUrl = process.env.GITNEXUS_BACKEND_URL ?? process.env.RENDER_EXTERNAL_URL ?? null;
 const backendUrl = validHttpUrl(backendUrlVar, rawBackendUrl);
-const configScript = backendUrl
-  ? `<script>window.__GITNEXUS_CONFIG__=${jsonForScriptTag({ backendUrl })};</script>`
+
+const openAIBaseUrl = validHttpUrl('OPENAI_BASE_URL', process.env.OPENAI_BASE_URL);
+const openAIApiKey = process.env.OPENAI_API_KEY?.trim() || null;
+if ((openAIBaseUrl && !openAIApiKey) || (!openAIBaseUrl && openAIApiKey)) {
+  exitWithRefusal(
+    '[gitnexus-web] Refusing to start: OPENAI_BASE_URL and OPENAI_API_KEY must be set together.',
+  );
+}
+const managedOpenAI =
+  openAIBaseUrl && openAIApiKey
+    ? {
+        baseUrl: '/llm-proxy',
+        model: process.env.GITNEXUS_DEFAULT_MODEL?.trim() || 'gpt-5.6-sol',
+      }
+    : null;
+const runtimeConfig = {
+  ...(backendUrl ? { backendUrl } : {}),
+  ...(managedOpenAI ? { managedOpenAI } : {}),
+};
+const resetStoredLlmSettings = managedOpenAI
+  ? "try{sessionStorage.removeItem('gitnexus-llm-settings');localStorage.removeItem('gitnexus-llm-settings')}catch{}"
+  : '';
+const configScript = Object.keys(runtimeConfig).length
+  ? `<script>window.__GITNEXUS_CONFIG__=${jsonForScriptTag(runtimeConfig)};${resetStoredLlmSettings}</script>`
   : '';
 
 // Optional same-origin reverse proxy for the API server. On a split deploy
@@ -449,6 +471,64 @@ async function proxyToUpstream(req, res) {
   attempt(1);
 }
 
+// Fixed OpenAI-compatible chat proxy. The browser never receives the real key;
+// any browser-supplied Authorization header is replaced here.
+function proxyToLlm(req, res) {
+  if (!openAIBaseUrl || !openAIApiKey) {
+    failGateway(res, 503, 'LLM proxy is not configured');
+    return;
+  }
+
+  const upstream = new URL('chat/completions', `${openAIBaseUrl.replace(/\/+$/, '')}/`);
+  const isHttps = upstream.protocol === 'https:';
+  const requestFn = isHttps ? httpsRequest : httpRequest;
+  const headers = {
+    accept: typeof req.headers.accept === 'string' ? req.headers.accept : 'text/event-stream',
+    authorization: `Bearer ${openAIApiKey}`,
+    'content-type':
+      typeof req.headers['content-type'] === 'string'
+        ? req.headers['content-type']
+        : 'application/json',
+    host: upstream.host,
+  };
+  if (typeof req.headers['content-length'] === 'string') {
+    headers['content-length'] = req.headers['content-length'];
+  }
+
+  let timedOut = false;
+  const upstreamReq = requestFn(
+    {
+      protocol: upstream.protocol,
+      hostname: upstream.hostname,
+      port: upstream.port || (isHttps ? 443 : 80),
+      method: 'POST',
+      path: upstream.pathname + upstream.search,
+      headers,
+    },
+    (upstreamRes) => {
+      const responseHeaders = stripHopByHopHeaders({ ...upstreamRes.headers });
+      res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
+      upstreamRes.on('error', () => res.destroy());
+      upstreamRes.pipe(res);
+    },
+  );
+  upstreamReq.on('error', (err) => {
+    if (timedOut) return;
+    console.error('[gitnexus-web] LLM proxy error:', sanitizeForLog(err.message));
+    failGateway(res, 502, 'Bad gateway');
+  });
+  if (proxyTimeoutMs > 0) {
+    upstreamReq.setTimeout(proxyTimeoutMs, () => {
+      timedOut = true;
+      console.error(`[gitnexus-web] LLM proxy timeout after ${proxyTimeoutMs}ms`);
+      failGateway(res, 504, 'Gateway timeout');
+      upstreamReq.destroy();
+    });
+  }
+  req.on('error', () => upstreamReq.destroy());
+  req.pipe(upstreamReq);
+}
+
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -482,6 +562,29 @@ const spaFallback = resolve(root, 'index.html');
 
 const server = createServer(async (req, res) => {
   const urlPath = req.url?.split('?')[0] || '/';
+
+  if (urlPath === '/llm-proxy/chat/completions') {
+    if (!managedOpenAI) {
+      failGateway(res, 503, 'LLM proxy is not configured');
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.writeHead(405, {
+        Allow: 'POST',
+        'Content-Type': 'text/plain; charset=utf-8',
+      });
+      res.end('Method not allowed');
+      return;
+    }
+    proxyToLlm(req, res);
+    return;
+  }
+
+  if (urlPath === '/llm-proxy' || urlPath.startsWith('/llm-proxy/')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not found');
+    return;
+  }
 
   // Same-origin API proxy; everything else falls through to the SPA below.
   if (upstreamBase && (urlPath === '/api' || urlPath.startsWith('/api/'))) {

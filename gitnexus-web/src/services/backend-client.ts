@@ -345,6 +345,23 @@ export function normalizeServerUrl(input: string): string {
  */
 let _authToken: string | null = null;
 
+const consumeTransferredAuthToken = (): string => {
+  if (typeof window === 'undefined') return '';
+
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const transferred = fragment.get('gitnexus_access_token');
+  if (transferred === null) return '';
+
+  fragment.delete('gitnexus_access_token');
+  const remainingFragment = fragment.toString();
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${window.location.search}${remainingFragment ? `#${remainingFragment}` : ''}`,
+  );
+  return transferred.trim();
+};
+
 const readStoredAuthToken = (): string => {
   try {
     if (typeof sessionStorage === 'undefined') return '';
@@ -358,6 +375,11 @@ const readStoredAuthToken = (): string => {
 /** The current access token, or `''` when the deploy is ungated. */
 export const getAuthToken = (): string => {
   if (_authToken === null) {
+    const transferred = consumeTransferredAuthToken();
+    if (transferred) {
+      setAuthToken(transferred);
+      return transferred;
+    }
     _authToken = readStoredAuthToken();
   }
   return _authToken;

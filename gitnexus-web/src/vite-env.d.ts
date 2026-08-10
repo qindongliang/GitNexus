@@ -3,6 +3,10 @@
 interface Window {
   __GITNEXUS_CONFIG__?: {
     backendUrl?: string;
+    managedOpenAI?: {
+      baseUrl: string;
+      model: string;
+    };
     /**
      * Node-count above which the WebUI connects in chat-only mode by default
      * (skips the full graph download to avoid hanging the browser on very

@@ -156,18 +156,25 @@ export interface LLMSettings {
   clusteringProvider?: Partial<ProviderConfig>; // Optional specific config for clustering
 }
 
+const managedOpenAI =
+  typeof window !== 'undefined' ? window.__GITNEXUS_CONFIG__?.managedOpenAI : undefined;
+const managedOpenAIBaseUrl = managedOpenAI
+  ? new URL(managedOpenAI.baseUrl, window.location.origin).toString()
+  : undefined;
+
 /**
  * Default LLM settings
  */
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
-  activeProvider: 'gemini',
+  activeProvider: managedOpenAI ? 'openai' : 'gemini',
   intelligentClustering: false,
   hasSeenClusteringPrompt: false,
   useSameModelForClustering: true,
   openai: {
-    apiKey: '',
-    model: 'gpt-4o',
+    apiKey: managedOpenAI ? 'server-managed' : '',
+    model: managedOpenAI?.model ?? 'gpt-4o',
     temperature: 0.1,
+    ...(managedOpenAIBaseUrl ? { baseUrl: managedOpenAIBaseUrl } : {}),
   },
   gemini: {
     apiKey: '',
