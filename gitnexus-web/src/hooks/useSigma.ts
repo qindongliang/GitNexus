@@ -8,6 +8,15 @@ import EdgeCurveProgram from '@sigma/edge-curve';
 import { SigmaNodeAttributes, SigmaEdgeAttributes } from '../lib/graph-adapter';
 import type { NodeAnimation } from './useAppState';
 import type { EdgeType } from '../lib/constants';
+
+const getGraphLabelColor = (): string => {
+  const themeColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--color-text-primary')
+    .trim();
+  if (themeColor) return themeColor;
+  return document.documentElement.dataset.theme === 'dark' ? '#e4e4ed' : '#111827';
+};
+
 // Helper: Parse hex color to RGB
 const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -402,7 +411,7 @@ export const useSigma = (options: UseSigmaOptions = {}): UseSigmaReturn => {
       labelFont: 'JetBrains Mono, monospace',
       labelSize: 11,
       labelWeight: '500',
-      labelColor: { color: '#e4e4ed' },
+      labelColor: { color: getGraphLabelColor() },
       labelRenderedSizeThreshold: 8,
       labelDensity: 0.1,
       labelGridCellSize: 70,
@@ -681,6 +690,15 @@ export const useSigma = (options: UseSigmaOptions = {}): UseSigmaReturn => {
 
     sigmaRef.current = sigma;
 
+    const themeObserver = new MutationObserver(() => {
+      sigma.setSetting('labelColor', { color: getGraphLabelColor() });
+      sigma.refresh();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
     sigma.on('clickNode', ({ node }) => {
       setSelectedNode(node);
       onNodeClickRef.current?.(node);
@@ -722,6 +740,7 @@ export const useSigma = (options: UseSigmaOptions = {}): UseSigmaReturn => {
         clearTimeout(layoutTimeoutRef.current);
       }
       layoutRef.current?.kill();
+      themeObserver.disconnect();
       sigma.kill();
       sigmaRef.current = null;
       graphRef.current = null;
