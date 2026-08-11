@@ -287,7 +287,7 @@ export const RightPanel = () => {
           {/* Chat-only notice: the graph wasn't loaded for this large project, so
               inline node citations won't pin in the (absent) graph view (#2178). */}
           {graphMode === 'chatOnly' && (
-            <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-[11px] text-amber-200/90">
+            <div className="chat-only-banner border-b px-4 py-2 text-[11px]">
               {t('chat:chatOnly.banner')}
             </div>
           )}

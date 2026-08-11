@@ -117,10 +117,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
           // Styles
           const baseParams =
-            'code-ref-btn inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[12px] !no-underline hover:!no-underline transition-colors';
-          const colorParams = isNodeRef
-            ? 'border border-amber-300/55 bg-amber-400/10 !text-amber-200 visited:!text-amber-200 hover:bg-amber-400/15 hover:border-amber-200/70'
-            : 'border border-cyan-300/55 bg-cyan-400/10 !text-cyan-200 visited:!text-cyan-200 hover:bg-cyan-400/15 hover:border-cyan-200/70';
+            'code-ref-btn inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[12px] !no-underline transition-colors hover:!no-underline';
+          const colorParams = isNodeRef ? 'code-ref-btn--node' : 'code-ref-btn--file';
 
           return (
             <a
