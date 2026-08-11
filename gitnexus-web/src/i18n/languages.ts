@@ -7,7 +7,7 @@ export interface LanguageMetadata {
   dir: 'ltr' | 'rtl';
 }
 
-export const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
+export const DEFAULT_LANGUAGE: SupportedLanguage = 'zh-CN';
 
 export const SUPPORTED_LANGUAGES: LanguageMetadata[] = [
   { code: 'en', nativeName: 'English', englishName: 'English', dir: 'ltr' },

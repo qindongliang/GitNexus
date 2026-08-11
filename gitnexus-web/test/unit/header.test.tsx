@@ -28,10 +28,6 @@ vi.mock('../../src/components/EmbeddingStatus', () => ({
   EmbeddingStatus: () => <div data-testid="embedding-status" />,
 }));
 
-vi.mock('../../src/components/LanguageSwitcher', () => ({
-  LanguageSwitcher: () => <div data-testid="language-switcher" />,
-}));
-
 vi.mock('../../src/components/RepoAnalyzer', () => ({
   RepoAnalyzer: () => <div data-testid="repo-analyzer" />,
 }));

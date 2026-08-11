@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "GitNexus",
-    "nexusAI": "Nexus AI"
+    "nexusAI": "AI 问答"
   },
   "actions": {
     "cancel": "取消",

@@ -10,9 +10,11 @@
   "noRepositoriesFound": "No repositories found for \"{{query}}\"",
   "searchNodes": "Search nodes...",
   "noNodesFound": "No nodes found for \"{{query}}\"",
-  "starIfCool": "Star if cool",
-  "aiSettings": "AI Settings",
   "help": "Help",
-  "language": "Language",
-  "selectLanguage": "Select language"
+  "theme": {
+    "label": "Theme",
+    "light": "Light theme",
+    "dark": "Dark theme",
+    "system": "Use system theme"
+  }
 }
